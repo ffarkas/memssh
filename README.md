@@ -1,109 +1,157 @@
-
 # memssh
 
-`memssh` is a lightweight SSH client wrapper built to address a specific issue: **OpenSSH blocks SSH keys stored in insecure locations** (such as world-readable folders or custom password managers). This tool allows interactive or command-based SSH access using a pasted private key, bypassing strict file permission checks while still performing secure host verification and fingerprint pinning.
+memssh is a secure, portable command-line SSH client written in Go. It simplifies connecting to remote SSH servers using in-memory private keys and maintains host fingerprints in a user-local known_hosts.json file.
 
-## ✨ Features
 
-- Connects to SSH servers using a private key passed via argument or stdin
-- Secure fingerprint verification with user confirmation
-- Stores known hosts and their fingerprints in a local `.known_hosts.json` file
-- Supports command execution or full interactive shells
-- Handles encrypted private keys with passphrase prompts
-- Works well in restricted environments (e.g., when `.ssh/` cannot be used)
+## Why memssh?
 
-## 🔧 Why It Exists
+memssh was created to safely use SSH private keys that are stored in **untrusted locations** such as:
 
-Standard `ssh` rejects keys that aren’t stored securely on disk. This can be frustrating in environments where:
+- USB drives
+- Encrypted or ephemeral file systems
+- Crypto containers
+- Temporary key provisioning environments
 
-- You store keys in secure password managers or hardware tokens
-- You can’t or don’t want to use the default `~/.ssh` directory
-- You run in restricted containers, CI/CD environments, or minimal systems
+With memssh, your private key can be loaded **entirely into memory** without ever being written to disk. This makes it ideal for high-security workflows where key persistence is unacceptable.
 
-`memssh` solves this by allowing you to paste a key or pass it as a flag, with secure handling and ephemeral memory wiping after use.
 
-## 🚀 Usage
+## Features
 
-### Install dependencies
+- Lightweight SSH client
+- Supports in-memory private key authentication
+- Trusted host fingerprint validation with prompt
+- Stores fingerprints in ~/.ssh/known_hosts.json (cross-platform)
+- Interactive shell or remote command execution
+- Optional storage bypass (-no-store)
+- Securely wipes key/passphrase memory after use
 
-Make sure you have Go installed (version 1.18 or later recommended). Then fetch the dependencies:
+
+## Platforms
+
+- Supported on Windows (cmd or PowerShell)
+- Supported on Linux
+- Supported on macOS
+
+
+## Installation
+
+### Requirements
+
+- Go 1.20 or newer
+
+### Get Dependencies
+
+Run the following to get the required packages:
 
 ```bash
 go get golang.org/x/crypto/ssh
 go get golang.org/x/term
 ```
 
-### Build
+### Build (Linux/macOS)
 
 ```bash
-go build -o memssh
+git clone https://github.com/yourusername/memssh.git
+cd memssh
+go build -o memssh main.go
 ```
 
-### Run
+### Build (Windows)
 
-```bash
-./memssh -host example.com -user ubuntu
+```powershell
+git clone https://github.com/yourusername/memssh.git
+cd memssh
+go build -o memssh.exe main.go
 ```
 
-Or with a pasted key:
+
+## Usage
+
+### Basic Example (Using Private Key File)
 
 ```bash
-./memssh -host example.com -user ubuntu
+memssh -host 192.168.1.10 -user ubuntu -key /path/to/id_rsa
+```
+
+### Run a Single Command
+
+```bash
+memssh -host server.example.com -user admin -key ~/.ssh/id_ed25519 -cmd "uptime"
+```
+
+### Paste Private Key at Runtime (No -key flag)
+
+If you omit the -key flag, you will be prompted to paste your private key directly into the terminal:
+
+```bash
+memssh -host 192.168.1.10 -user ubuntu
 Paste your private key (end with an empty line):
 -----BEGIN OPENSSH PRIVATE KEY-----
 ...
 -----END OPENSSH PRIVATE KEY-----
 ```
 
-You can also pass the key via `-key` flag:
+### Skip Saving Host Fingerprints
+
+You can prevent memssh from saving the host fingerprint locally using -no-store:
 
 ```bash
-./memssh -host example.com -user ubuntu -key "/path/to/key"
+memssh -host test.server.local -user dev -key ./temp_key.pem -no-store
 ```
 
-To run a command instead of an interactive shell:
 
-```bash
-./memssh -host example.com -user ubuntu -cmd "uptime"
-```
+## Known Hosts Storage
 
-Disable saving of host fingerprints with:
+Trusted fingerprints are stored in:
 
-```bash
-./memssh -host example.com -user ubuntu -no-store
-```
+- Linux/macOS: $HOME/.ssh/known_hosts.json
+- Windows: %USERPROFILE%\.ssh\known_hosts.json
 
-## 🗂 Known Hosts Storage
+You can manually edit this file to remove or inspect fingerprints.
 
-Fingerprint trust is stored locally in `.known_hosts.json` in the **same directory as the compiled binary**. This file maps `host:port` → `SHA256 fingerprint`. If a fingerprint changes, you're prompted to accept the new one.
 
-## 🔐 Security Notes
+## Security Considerations
 
-- Keys are zeroed from memory after use.
-- Passphrases are not stored.
-- Only SHA256 fingerprints are used for verification.
-- Interactive trust confirmation is required for unknown or changed hosts.
+memssh was designed with security in mind, particularly for sensitive workflows involving untrusted or temporary storage.
 
-## 📦 Dependencies & Licenses
+Key security features:
 
-This tool uses the following Go packages:
+- **In-memory private keys**: Private keys can be supplied via `stdin` and are never written to disk, allowing safe use from USB drives, encrypted containers, or ephemeral environments.
+- **Memory wiping**: Key material and passphrases are explicitly zeroed from memory after use to reduce exposure.
+- **Host fingerprint verification**: Server fingerprints are validated using SHA-256 hashes and stored in a local known_hosts database with user confirmation.
+- **User-controlled trust**: On fingerprint change or first connection, the user must explicitly confirm trust, preventing silent man-in-the-middle acceptance.
+- **No background daemons**: memssh is a single-run utility that exits cleanly after session or command execution.
+- **Cross-platform path security**: Known hosts are stored securely under `$HOME/.ssh` or `%USERPROFILE%\.ssh`, consistent with OpenSSH best practices.
+- **No key agent exposure**: This tool does not interface with SSH agents or forward credentials, ensuring isolation of authentication material.
 
-- [`golang.org/x/crypto/ssh`](https://pkg.go.dev/golang.org/x/crypto/ssh)  
-  Licensed under **BSD-style license** (compatible with open-source use)
+> While memssh uses cryptographically secure libraries and follows best practices, it is still a CLI tool and should be used responsibly. Always review code and dependencies in high-security deployments.
 
-- [`golang.org/x/term`](https://pkg.go.dev/golang.org/x/term)  
-  Also licensed under the **BSD-style license**
 
-These licenses do **not** require you to open-source your own code if you distribute a compiled binary, but **you must include the original license texts** if redistributing the source or as part of a bundled package. You can add a `LICENSES/` directory if needed.
+## License
 
-## 📁 Example `.known_hosts.json`
+memssh is licensed under the Mozilla Public License 2.0 (MPL-2.0).
 
-```json
-{
-  "example.com:22": "abc123...base64-encoded-sha256..."
-}
-```
+You may use, modify, and redistribute this software under the terms of the MPL. Contributions are welcome.
 
-## 📃 License
+See LICENSE at https://www.mozilla.org/en-US/MPL/2.0/ for full terms.
 
-This project is open-source under the [MIT License](LICENSE). See included third-party licenses if you distribute with dependencies.
+
+## Third-Party Modules
+
+memssh uses the following open-source modules:
+
+- golang.org/x/crypto/ssh – SSH client implementation  
+  License: BSD-3-Clause
+- golang.org/x/term – Secure password and terminal handling  
+  License: BSD-3-Clause
+
+
+## Contributing
+
+Feel free to open issues or submit pull requests for enhancements or bugfixes. All contributions must be MPL-2.0 compatible.
+
+
+## Author
+
+Copyright 2025 ffarkas  
+Licensed under the Mozilla Public License 2.0
