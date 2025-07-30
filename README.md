@@ -51,7 +51,7 @@ go get golang.org/x/term
 ### Build (Linux/macOS)
 
 ```bash
-git clone https://github.com/yourusername/memssh.git
+git clone https://github.com/ffarkas/memssh.git
 cd memssh
 go build -o memssh main.go
 ```
@@ -59,7 +59,7 @@ go build -o memssh main.go
 ### Build (Windows)
 
 ```powershell
-git clone https://github.com/yourusername/memssh.git
+git clone https://github.com/ffarkas/memssh.git
 cd memssh
 go build -o memssh.exe main.go
 ```
